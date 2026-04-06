@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Sentinel Security Dashboard
+Comment=PlausiDen Sentinel IDS/IPS web dashboard
+Exec=xdg-open http://localhost:9001
+Icon=security-high
+Terminal=false
+Categories=System;Security;Monitor;
+Keywords=security;sentinel;ids;ips;monitor;

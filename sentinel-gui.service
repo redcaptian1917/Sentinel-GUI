@@ -1,0 +1,20 @@
+[Unit]
+Description=PlausiDen Sentinel GUI Dashboard
+After=network.target sentinel.service
+Wants=sentinel.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/sentinel-gui
+Restart=on-failure
+RestartSec=5
+User=root
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sentinel-gui
+
+# Listens on localhost only.
+PrivateNetwork=false
+
+[Install]
+WantedBy=multi-user.target
