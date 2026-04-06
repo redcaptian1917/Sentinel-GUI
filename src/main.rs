@@ -12,6 +12,7 @@ use axum::{
 use chrono::Utc;
 use plausiden_sentinel::detection::credential_theft::CredentialTheftDetector;
 use plausiden_sentinel::detection::forensic_detector::ForensicDetector;
+use plausiden_sentinel::detection::kernel_monitor::KernelMonitor;
 use plausiden_sentinel::detection::privilege_escalation::PrivEscDetector;
 use plausiden_sentinel::detection::process_injection::InjectionDetector;
 use plausiden_sentinel::detection::rootkit::RootkitDetector;
@@ -32,6 +33,8 @@ struct ScanResult {
     tcp_established: usize,
     tcp_listening: usize,
     tcp_external: usize,
+    kernel_hardened: bool,
+    kernel_recommendations: usize,
 }
 
 #[derive(Clone, Serialize)]
@@ -160,6 +163,11 @@ fn run_scan() -> ScanResult {
     let listening = ConnectionMonitor::listening_ports().len();
     let external = ConnectionMonitor::external_connections().len();
 
+    // Kernel security state.
+    let kernel_state = KernelMonitor::read_state();
+    let kernel_recs = KernelMonitor::recommendations(&kernel_state);
+    let kernel_hardened = KernelMonitor::is_hardened(&kernel_state);
+
     ScanResult {
         timestamp: Utc::now().to_rfc3339(),
         process_count: procs.len(),
@@ -171,6 +179,8 @@ fn run_scan() -> ScanResult {
         tcp_established: established,
         tcp_listening: listening,
         tcp_external: external,
+        kernel_hardened,
+        kernel_recommendations: kernel_recs.len(),
     }
 }
 
@@ -273,6 +283,8 @@ body {{ font-family: var(--font); background: var(--bg); color: var(--text); min
   <div class="card"><div class="label">TCP Established</div><div class="value" id="tcp-est">—</div></div>
   <div class="card"><div class="label">Listening Ports</div><div class="value" id="tcp-listen">—</div></div>
   <div class="card"><div class="label">External Connections</div><div class="value" id="tcp-ext">—</div></div>
+  <div class="card"><div class="label">Kernel</div><div class="value" id="kernel-state">—</div></div>
+  <div class="card"><div class="label">Hardening Recs</div><div class="value" id="kernel-recs">—</div></div>
 </div>
 
 <div class="threats">
@@ -320,6 +332,11 @@ function updateUI(data) {{
   const extEl = document.getElementById('tcp-ext');
   extEl.textContent = data.tcp_external;
   extEl.className = data.tcp_external > 50 ? 'value warning' : 'value';
+  const kernelEl = document.getElementById('kernel-state');
+  kernelEl.textContent = data.kernel_hardened ? 'HARDENED' : 'NEEDS WORK';
+  kernelEl.className = data.kernel_hardened ? 'value clean' : 'value warning';
+  kernelEl.style.fontSize = '0.9rem';
+  document.getElementById('kernel-recs').textContent = data.kernel_recommendations;
 
   const list = document.getElementById('threat-list');
   if (data.threats.length === 0) {{
