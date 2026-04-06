@@ -16,6 +16,7 @@ use plausiden_sentinel::detection::privilege_escalation::PrivEscDetector;
 use plausiden_sentinel::detection::process_injection::InjectionDetector;
 use plausiden_sentinel::detection::rootkit::RootkitDetector;
 use plausiden_sentinel::detection::threat::{ThreatEvent, ThreatLevel};
+use plausiden_sentinel::network::connection_monitor::ConnectionMonitor;
 use serde::Serialize;
 use std::sync::{Arc, Mutex};
 
@@ -28,6 +29,9 @@ struct ScanResult {
     scan_duration_ms: u64,
     kernel_version: String,
     uptime: String,
+    tcp_established: usize,
+    tcp_listening: usize,
+    tcp_external: usize,
 }
 
 #[derive(Clone, Serialize)]
@@ -151,6 +155,11 @@ fn run_scan() -> ScanResult {
     else if !threats.is_empty() { "ALERT" }
     else { "CLEAN" };
 
+    // Network connection stats.
+    let established = ConnectionMonitor::established_connections().len();
+    let listening = ConnectionMonitor::listening_ports().len();
+    let external = ConnectionMonitor::external_connections().len();
+
     ScanResult {
         timestamp: Utc::now().to_rfc3339(),
         process_count: procs.len(),
@@ -159,6 +168,9 @@ fn run_scan() -> ScanResult {
         scan_duration_ms: elapsed.as_millis() as u64,
         kernel_version: get_kernel_version(),
         uptime: get_uptime(),
+        tcp_established: established,
+        tcp_listening: listening,
+        tcp_external: external,
     }
 }
 
@@ -258,6 +270,9 @@ body {{ font-family: var(--font); background: var(--bg); color: var(--text); min
   <div class="card"><div class="label">Scan Time</div><div class="value" id="scan-time">—</div></div>
   <div class="card"><div class="label">Kernel</div><div class="value" id="kernel" style="font-size:0.9rem">—</div></div>
   <div class="card"><div class="label">Uptime</div><div class="value" id="uptime">—</div></div>
+  <div class="card"><div class="label">TCP Established</div><div class="value" id="tcp-est">—</div></div>
+  <div class="card"><div class="label">Listening Ports</div><div class="value" id="tcp-listen">—</div></div>
+  <div class="card"><div class="label">External Connections</div><div class="value" id="tcp-ext">—</div></div>
 </div>
 
 <div class="threats">
@@ -300,6 +315,11 @@ function updateUI(data) {{
   document.getElementById('kernel').textContent = data.kernel_version;
   document.getElementById('uptime').textContent = data.uptime;
   document.getElementById('last-scan').textContent = 'Last: ' + new Date(data.timestamp).toLocaleTimeString();
+  document.getElementById('tcp-est').textContent = data.tcp_established;
+  document.getElementById('tcp-listen').textContent = data.tcp_listening;
+  const extEl = document.getElementById('tcp-ext');
+  extEl.textContent = data.tcp_external;
+  extEl.className = data.tcp_external > 50 ? 'value warning' : 'value';
 
   const list = document.getElementById('threat-list');
   if (data.threats.length === 0) {{
